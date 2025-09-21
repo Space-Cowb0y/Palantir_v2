@@ -1,0 +1,32 @@
+﻿syntax = "proto3";
+package agent;
+
+option go_package = "github.com/Space-Cowb0y/Palantir_v2/sentinel/api;agentpb";
+
+message RegisterRequest {
+  string id = 1;
+  string name = 2;
+  string version = 3;
+  string language = 4;
+  string hostname = 5;
+  string description = 6;
+}
+
+message RegisterResponse {
+  string assigned_id = 1;
+}
+
+message Heartbeat {
+  string agent_id = 1;
+  int64 started_unix = 2;
+  int64 now_unix = 3;
+  string status = 4; // running/degraded/stopped
+  string note = 5;
+}
+
+message Empty {}
+
+service Sentinel {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc StreamHeartbeats(stream Heartbeat) returns (Empty);
+}

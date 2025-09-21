@@ -1,0 +1,41 @@
+﻿<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Sentinel Web UI</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;margin:20px}
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #ddd;padding:8px}
+    th{background:#f5f5f5}
+  </style>
+</head>
+<body>
+  <h1>Sentinel â€” Agents</h1>
+  <table id="tbl">
+    <thead><tr><th>Name</th><th>Lang</th><th>Status</th><th>Uptime</th><th>Note</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <script>
+    const tbody = document.querySelector('#tbl tbody');
+    function render(list){
+      tbody.innerHTML = '';
+      const now = Date.now();
+      for(const a of list){
+        const started = new Date(a.Started);
+        const uptimeMs = now - started.getTime();
+        const d = Math.floor(uptimeMs/86400000);
+        const h = String(Math.floor((uptimeMs%86400000)/3600000)).padStart(2,'0');
+        const m = String(Math.floor((uptimeMs%3600000)/60000)).padStart(2,'0');
+        const s = String(Math.floor((uptimeMs%60000)/1000)).padStart(2,'0');
+        const upt = (d>0?d+'d ':'')+h+':'+m+':'+s;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${a.Name}</td><td>${a.Language}</td><td>${a.Status}</td><td>${upt}</td><td>${a.Note||''}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+    const evt = new EventSource('/events');
+    evt.onmessage = e => { render(JSON.parse(e.data)); };
+  </script>
+</body>
+</html>

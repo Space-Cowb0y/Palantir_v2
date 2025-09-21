@@ -1,0 +1,28 @@
+﻿http_listen: "127.0.0.1:8080"
+grpc_listen: "127.0.0.1:50060"
+tui: true
+
+plugins:
+  - name: "greeter-go"
+    description: "Exemplo em Go que envia heartbeats"
+    path: "plugins/greeter/greeter.exe"
+    args: []
+    env: {}
+    language: "go"
+    enabled: true
+
+  - name: "greeter-rs"
+    description: "Exemplo em Rust (tonic)"
+    path: "eyes/rust/greeter/target/release/greeter.exe"
+    args: []
+    env: {}
+    language: "rust"
+    enabled: false
+
+  - name: "greeter-cpp"
+    description: "Exemplo em C++ (gRPC C++)"
+    path: "eyes/cpp/greeter/build/greeter.exe"
+    args: []
+    env: {}
+    language: "cpp"
+    enabled: false
