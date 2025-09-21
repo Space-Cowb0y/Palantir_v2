@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	agentpb "github.com/Space-Cowb0y/Palantir_v2/sentinel/api"
+	agentpb "github.com/Space-Cowb0y/Palantir_v2/sentinel/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
