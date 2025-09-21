@@ -1,15 +1,27 @@
-﻿http_listen: "127.0.0.1:8080"
+﻿db_path: "sentinel.db"
+http_listen: "127.0.0.1:8080"
 grpc_listen: "127.0.0.1:50060"
 tui: true
 
+tls:
+  enabled: false
+  ca_file: "certs/ca.crt"
+  cert_file: "certs/server.crt"
+  key_file: "certs/server.key"
+  servername: "sentinel.local"
+
 plugins:
   - name: "greeter-go"
-    description: "Exemplo em Go que envia heartbeats"
+    description: "Exemplo em Go que envia heartbeats + logs"
     path: "plugins/greeter/greeter.exe"
     args: []
     env: {}
     language: "go"
     enabled: true
+    build:
+      workdir: "plugins/greeter"
+      steps:
+        - "go build -o greeter.exe ."
 
   - name: "greeter-rs"
     description: "Exemplo em Rust (tonic)"
@@ -18,6 +30,10 @@ plugins:
     env: {}
     language: "rust"
     enabled: false
+    build:
+      workdir: "eyes/rust/greeter"
+      steps:
+        - "cargo build --release"
 
   - name: "greeter-cpp"
     description: "Exemplo em C++ (gRPC C++)"
@@ -26,3 +42,9 @@ plugins:
     env: {}
     language: "cpp"
     enabled: false
+    build:
+      workdir: "eyes/cpp/greeter"
+      steps:
+        - "protoc -I ../../../api --cpp_out=. --grpc_out=. --plugin=protoc-gen-grpc=grpc_cpp_plugin ../../../api/agent.proto"
+        - "cmake -S . -B build"
+        - "cmake --build build --config Release"

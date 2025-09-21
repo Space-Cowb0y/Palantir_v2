@@ -2,23 +2,36 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>Sentinel Web UI</title>
+  <title>Sentinel Dashboard</title>
   <style>
     body{font-family:system-ui,Segoe UI,Arial;margin:20px}
+    .cards{display:flex;gap:12px;margin-bottom:16px}
+    .card{border:1px solid #ddd;border-radius:10px;padding:12px;min-width:160px}
     table{border-collapse:collapse;width:100%}
     th,td{border:1px solid #ddd;padding:8px}
     th{background:#f5f5f5}
+    .logs{max-height:260px;overflow:auto;border:1px solid #ddd;border-radius:8px;padding:8px;background:#fafafa}
+    .muted{color:#666}
   </style>
 </head>
 <body>
-  <h1>Sentinel â€” Agents</h1>
-  <table id="tbl">
-    <thead><tr><th>Name</th><th>Lang</th><th>Status</th><th>Uptime</th><th>Note</th></tr></thead>
-    <tbody></tbody>
-  </table>
+  <h1>Sentinel â€” Dashboard</h1>
+  <div class="cards">
+    <div class="card"><div class="muted">Agents</div><div id="c_agents" style="font-size:28px">-</div></div>
+    <div class="card"><div class="muted">Running</div><div id="c_running" style="font-size:28px">-</div></div>
+    <div class="card"><div class="muted">HB (5m)</div><div id="c_last5" style="font-size:28px">-</div></div>
+    <div class="card"><div class="muted">Logs (24h)</div><div id="c_logs24" style="font-size:28px">-</div></div>
+  </div>
+
+  <h3>Agents</h3>
+  <table id="tbl"><thead><tr><th>Name</th><th>Lang</th><th>Status</th><th>Uptime</th><th>Note</th></tr></thead><tbody></tbody></table>
+
+  <h3>Recent Logs</h3>
+  <div class="logs" id="logs"></div>
+
   <script>
     const tbody = document.querySelector('#tbl tbody');
-    function render(list){
+    function renderAgents(list){
       tbody.innerHTML = '';
       const now = Date.now();
       for(const a of list){
@@ -34,8 +47,21 @@
         tbody.appendChild(tr);
       }
     }
+    async function summary(){
+      const r = await fetch('/api/summary'); if(!r.ok) return;
+      const s = await r.json();
+      c_agents.textContent = s.Agents; c_running.textContent = s.Running; c_last5.textContent = s.Last5m; c_logs24.textContent = s.Logs24h;
+    }
+    async function recentLogs(){
+      const r = await fetch('/api/logs?limit=200'); if(!r.ok) return;
+      const arr = await r.json();
+      logs.innerHTML = arr.map(x=>`<div><b>[${x.level}]</b> ${new Date(x.ts).toLocaleString()} <span class="muted">(${x.agent_id})</span> â€” ${x.message}</div>`).join('');
+    }
     const evt = new EventSource('/events');
-    evt.onmessage = e => { render(JSON.parse(e.data)); };
+    evt.onmessage = e => { renderAgents(JSON.parse(e.data)); };
+
+    setInterval(summary, 3000); setInterval(recentLogs, 3000);
+    summary(); recentLogs();
   </script>
 </body>
 </html>

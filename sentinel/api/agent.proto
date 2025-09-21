@@ -24,9 +24,18 @@ message Heartbeat {
   string note = 5;
 }
 
+message LogLine {
+  string agent_id = 1;
+  int64 ts_unix = 2;
+  string level = 3;    // INFO/WARN/ERROR/DEBUG
+  string message = 4;
+  map<string,string> fields = 5;
+}
+
 message Empty {}
 
 service Sentinel {
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc StreamHeartbeats(stream Heartbeat) returns (Empty);
+  rpc SendLogs(stream LogLine) returns (Empty);
 }

@@ -8,92 +8,95 @@ import (
 	"syscall"
 	"time"
 
-	agentpb "github.com/Space-Cowb0y/Palantir_v2/sentinel/proto"
-	"github.com/Space-Cowb0y/Palantir_v2/sentinel/api"
+	agentpb "github.com/Space-Cowb0y/Palantir_v2/sentinel/api"
+	apiSrv "github.com/Space-Cowb0y/Palantir_v2/sentinel/api"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/internal/config"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/internal/logging"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/internal/plugin"
+	"github.com/Space-Cowb0y/Palantir_v2/sentinel/internal/security"
+	"github.com/Space-Cowb0y/Palantir_v2/sentinel/internal/store"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/pkg/ui"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/pkg/web"
 	"github.com/spf13/cobra"
 	tea "github.com/charmbracelet/bubbletea"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
-var version = "0.2.0"
+var version = "0.3.0"
 
 var rootCmd = &cobra.Command{
 	Use:   "sentinel",
 	Short: "Sentinel â€” gerenciador de plugins (eyes) de seguranÃ§a",
-	Long:  "Sentinel Ã© o orquestrador que registra e monitora 'eyes' via gRPC e expÃµe status via CLI e Web.",
+	Long:  "Sentinel registra/monitora 'eyes' via gRPC (com mTLS opcional), persiste em SQLite e oferece CLI, GUI e Web.",
 }
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Inicia gRPC + Web API + TUI + carrega eyes",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runServe()
-	},
+	Short: "Inicia gRPC + Web + TUI + DB + Launcher",
+	RunE: func(cmd *cobra.Command, args []string) error { return runServe() },
 }
 
 var guiCmd = &cobra.Command{
 	Use:   "gui",
 	Short: "Inicia GUI com Fyne",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runFyne()
-	},
+	RunE: func(cmd *cobra.Command, args []string) error { return runFyne() },
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Mostra a versÃ£o",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(version)
-	},
+	Run: func(cmd *cobra.Command, args []string) { fmt.Println(version) },
 }
 
 func Execute() {
 	rootCmd.AddCommand(serveCmd, guiCmd, versionCmd)
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	if err := rootCmd.Execute(); err != nil { fmt.Println(err); os.Exit(1) }
 }
 
 func runServe() error {
 	cfg := config.Load()
 	log := logging.New()
+	st := web.NewState()
 
-	// Estado compartilhado
-	state := web.NewState()
-
-	// gRPC server
-	grpcLis, err := net.Listen("tcp", cfg.GRPCListen)
+	// DB
+	db, err := store.Open(cfg.DBPath)
 	if err != nil { return err }
-	grpcSrv := grpc.NewServer()
-	agentpb.RegisterSentinelServer(grpcSrv, api.NewSentinelServer(state))
-	go func(){ _ = grpcSrv.Serve(grpcLis) }()
-	log.Infof("gRPC em %s", cfg.GRPCListen)
 
-	// Web server
-	go func(){ _ = web.Start(cfg.HTTPListen, state) }()
+	// gRPC server (TLS opcional)
+	var opts []grpc.ServerOption
+	if cfg.TLS.Enabled {
+		creds, err := security.ServerCreds(cfg.TLS); if err != nil { return err }
+		opts = append(opts, grpc.Creds(creds))
+	}
+	grpcSrv := grpc.NewServer(opts...)
+	agentpb.RegisterSentinelServer(grpcSrv, apiSrv.NewSentinelServer(st, db))
+
+	lis, err := net.Listen("tcp", cfg.GRPCListen); if err != nil { return err }
+	go func(){ _ = grpcSrv.Serve(lis) }()
+	log.Infof("gRPC em %s (mTLS=%v)", cfg.GRPCListen, cfg.TLS.Enabled)
+
+	// Web
+	go func(){ _ = web.Start(cfg.HTTPListen, st, db) }()
 	log.Infof("Web em http://%s", cfg.HTTPListen)
 
-	// Plugin manager
+	// Plugin manager + TLS env p/ eyes
 	pm := plugin.NewManager(cfg.GRPCListen, cfg.Plugins)
+	if cfg.TLS.Enabled {
+		pm.WithTLSEnv(true, cfg.TLS.CAFile, cfg.TLS.CertFile, cfg.TLS.KeyFile, cfg.TLS.ServerName)
+	}
 	pm.StartEnabled()
 
 	// TUI
 	if cfg.TUI {
-		p := tea.NewProgram(ui.NewModel(state, pm))
+		p := tea.NewProgram(ui.NewModel(st, pm))
 		go func(){ _, _ = p.Run() }()
 	}
 
-	// Espera Ctrl+C
+	// Ctrl+C
 	sig := make(chan os.Signal,1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	<-sig
-
 	grpcSrv.GracefulStop()
 	time.Sleep(200*time.Millisecond)
 	return nil
