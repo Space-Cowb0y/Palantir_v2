@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	agentpb "github.com/Space-Cowb0y/Palantir_v2/sentinel/api"
+	agentpb "github.com/Space-Cowb0y/Palantir_v2/sentinel/proto"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/internal/store"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/pkg/web"
 )

@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	agentpb "github.com/Space-Cowb0y/Palantir_v2/sentinel/api"
-	apiSrv "github.com/Space-Cowb0y/Palantir_v2/sentinel/api"
+	agentpb "github.com/Space-Cowb0y/Palantir_v2/sentinel/proto"
+	apiSrv "github.com/Space-Cowb0y/Palantir_v2/sentinel/proto"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/internal/config"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/internal/logging"
 	"github.com/Space-Cowb0y/Palantir_v2/sentinel/internal/plugin"
